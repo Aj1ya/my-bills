@@ -1,5 +1,5 @@
 import { addDays, type ISODate } from "./dates";
-import type { AppData, Bill, Settlement } from "./types";
+import type { AppData, Bill, Expense, Settlement } from "./types";
 
 export function newId(): string {
   // crypto.randomUUID only exists in secure contexts; LAN testing over http is not one.
@@ -51,6 +51,18 @@ export function saveBill(data: AppData, edited: Bill): AppData {
     ...data,
     bills: [...data.bills.map((b) => (b.id === original.id ? ended : b)), { ...edited, id: newId() }],
   };
+}
+
+export function saveExpense(data: AppData, expense: Expense): AppData {
+  const exists = data.expenses.some((e) => e.id === expense.id);
+  return {
+    ...data,
+    expenses: exists ? data.expenses.map((e) => (e.id === expense.id ? expense : e)) : [...data.expenses, expense],
+  };
+}
+
+export function deleteExpense(data: AppData, id: string): AppData {
+  return { ...data, expenses: data.expenses.filter((e) => e.id !== id) };
 }
 
 export function deleteBill(data: AppData, billId: string): AppData {

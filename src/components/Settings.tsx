@@ -7,11 +7,12 @@ interface Props {
   data: AppData;
   today: ISODate;
   update: (change: (d: AppData) => AppData) => void;
+  onBack: () => void;
 }
 
 const CURRENCIES = ["AUD", "NZD", "USD", "GBP", "EUR", "CAD", "INR"];
 
-export function Settings({ data, today, update }: Props) {
+export function Settings({ data, today, update, onBack }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<AppData | null>(null);
   const [message, setMessage] = useState("");
@@ -55,6 +56,9 @@ export function Settings({ data, today, update }: Props) {
 
   return (
     <>
+      <button className="link back" onClick={onBack}>
+        ‹ Home
+      </button>
       <h1>Settings</h1>
 
       <section className="panel">
@@ -74,7 +78,8 @@ export function Settings({ data, today, update }: Props) {
       <section className="panel">
         <h2>Backup</h2>
         <p className="hint">
-          Your bills are stored only on this device ({data.bills.length} bills, {data.settlements.length} payments). Export a
+          Your data is stored only on this device ({data.bills.length} bills and income sources,{" "}
+          {data.settlements.length} payments, {data.expenses.length} expenses). Export a
           backup now and then, and before deleting the app.
         </p>
         <div className="row">

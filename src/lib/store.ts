@@ -8,6 +8,7 @@ export const emptyData = (): AppData => ({
   version: 1,
   bills: [],
   settlements: [],
+  expenses: [],
   settings: { currency: "AUD" },
 });
 
@@ -20,6 +21,7 @@ export function parseData(raw: unknown): AppData {
     version: 1,
     bills: d.bills,
     settlements: d.settlements,
+    expenses: Array.isArray(d.expenses) ? d.expenses : [],
     settings: { currency: d.settings?.currency ?? "AUD" },
   };
 }

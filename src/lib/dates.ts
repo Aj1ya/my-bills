@@ -49,6 +49,13 @@ export function monthsBetween(from: ISODate, to: ISODate): number {
   return (ty - fy) * 12 + (tm - fm);
 }
 
+export type YearMonth = [year: number, month: number];
+
+export function shiftMonth([year, month]: YearMonth, delta: number): YearMonth {
+  const index = year * 12 + (month - 1) + delta;
+  return [Math.floor(index / 12), (index % 12) + 1];
+}
+
 export function monthRange(year: number, month: number): [first: ISODate, last: ISODate] {
   return [makeDate(year, month, 1), makeDate(year, month, daysInMonth(year, month))];
 }

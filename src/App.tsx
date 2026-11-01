@@ -1,53 +1,85 @@
 import { useState } from "react";
 import { BillForm } from "./components/BillForm";
-import { BillsList } from "./components/BillsList";
-import { MonthView } from "./components/MonthView";
+import { BillsPage } from "./components/BillsPage";
+import { CalendarPage } from "./components/CalendarPage";
+import { ExpenseForm } from "./components/ExpenseForm";
+import { ExpensesPage } from "./components/ExpensesPage";
+import { Home } from "./components/Home";
+import { IncomePage } from "./components/IncomePage";
 import { Settings } from "./components/Settings";
-import { Upcoming } from "./components/Upcoming";
-import { deleteBill, saveBill, settle, unsettle } from "./lib/actions";
+import { deleteBill, deleteExpense, saveBill, saveExpense, settle, unsettle } from "./lib/actions";
+import { parts, type ISODate, type YearMonth } from "./lib/dates";
 import { useAppData, useToday } from "./lib/store";
-import type { Bill, Occurrence, Settlement } from "./lib/types";
+import type { AppData, Bill, Expense, ItemKind, Occurrence, Settlement } from "./lib/types";
 
-type Tab = "upcoming" | "month" | "bills" | "settings";
+type Tab = "home" | "bills" | "calendar" | "income" | "expenses" | "settings";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: "upcoming", label: "Upcoming", icon: "◷" },
-  { id: "month", label: "Month", icon: "▦" },
+  { id: "home", label: "Home", icon: "◔" },
   { id: "bills", label: "Bills", icon: "≡" },
-  { id: "settings", label: "Settings", icon: "⚙" },
+  { id: "calendar", label: "Calendar", icon: "▦" },
+  { id: "income", label: "Income", icon: "↓" },
+  { id: "expenses", label: "Expenses", icon: "↑" },
 ];
 
-/** Callbacks shared by every list of occurrences. */
+/** Callbacks shared by every list of occurrences and expenses. */
 export interface OccurrenceActions {
   onSettle: (o: Occurrence, status: Settlement["status"]) => void;
   onUndo: (o: Occurrence) => void;
   onOpen: (bill: Bill) => void;
+  onOpenExpense: (expense: Expense) => void;
 }
+
+export interface ViewProps {
+  data: AppData;
+  today: ISODate;
+  currency: string;
+  actions: OccurrenceActions;
+}
+
+type Editing =
+  | { type: "item"; kind: ItemKind; bill?: Bill }
+  | { type: "expense"; expense?: Expense; date?: ISODate }
+  | null;
 
 export default function App() {
   const [data, update] = useAppData();
   const today = useToday();
-  const [tab, setTab] = useState<Tab>("upcoming");
-  const [editing, setEditing] = useState<Bill | "new" | null>(null);
+  const [tab, setTab] = useState<Tab>("home");
+  const [month, setMonth] = useState<YearMonth>(() => parts(today).slice(0, 2) as YearMonth);
+  const [editing, setEditing] = useState<Editing>(null);
 
   const actions: OccurrenceActions = {
     onSettle: (o, status) => update((d) => settle(d, o.bill, o.due, status, today)),
     onUndo: (o) => update((d) => unsettle(d, o.bill.id, o.due)),
-    onOpen: (bill) => setEditing(bill),
+    onOpen: (bill) => setEditing({ type: "item", kind: bill.kind ?? "bill", bill }),
+    onOpenExpense: (expense) => setEditing({ type: "expense", expense }),
   };
   const view = { data, today, currency: data.settings.currency, actions };
+  const paged = { ...view, month, onMonth: setMonth };
+
+  const add = () =>
+    setEditing(
+      tab === "expenses"
+        ? { type: "expense" }
+        : { type: "item", kind: tab === "income" ? "income" : "bill" },
+    );
 
   return (
     <div className="app">
       <main className="content">
-        {tab === "upcoming" && <Upcoming {...view} />}
-        {tab === "month" && <MonthView {...view} />}
-        {tab === "bills" && <BillsList {...view} />}
-        {tab === "settings" && <Settings data={data} today={today} update={update} />}
+        {tab === "home" && <Home {...view} onSettings={() => setTab("settings")} />}
+        {tab === "bills" && <BillsPage {...paged} />}
+        {tab === "calendar" && <CalendarPage {...paged} />}
+        {tab === "income" && <IncomePage {...paged} />}
+        {tab === "expenses" && <ExpensesPage {...paged} />}
+        {tab === "settings" && (
+          <Settings data={data} today={today} update={update} onBack={() => setTab("home")} />
+        )}
       </main>
 
       {tab !== "settings" && (
-        <button className="fab" aria-label="Add bill" onClick={() => setEditing("new")}>
+        <button className="fab" aria-label="Add" onClick={add}>
           +
         </button>
       )}
@@ -61,9 +93,10 @@ export default function App() {
         ))}
       </nav>
 
-      {editing && (
+      {editing?.type === "item" && (
         <BillForm
-          bill={editing === "new" ? undefined : editing}
+          kind={editing.kind}
+          bill={editing.bill}
           data={data}
           today={today}
           onCancel={() => setEditing(null)}
@@ -73,6 +106,22 @@ export default function App() {
           }}
           onDelete={(id) => {
             update((d) => deleteBill(d, id));
+            setEditing(null);
+          }}
+        />
+      )}
+      {editing?.type === "expense" && (
+        <ExpenseForm
+          expense={editing.expense}
+          data={data}
+          today={today}
+          onCancel={() => setEditing(null)}
+          onSave={(expense) => {
+            update((d) => saveExpense(d, expense));
+            setEditing(null);
+          }}
+          onDelete={(id) => {
+            update((d) => deleteExpense(d, id));
             setEditing(null);
           }}
         />

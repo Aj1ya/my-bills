@@ -1,7 +1,7 @@
 import type { OccurrenceActions } from "../App";
 import type { ISODate } from "../lib/dates";
 import { money, relativeDue, shortDate } from "../lib/format";
-import { FREQUENCY_LABELS } from "../lib/recurrence";
+import { FREQUENCY_LABELS, kindOf, occurrenceState, settledLabel } from "../lib/recurrence";
 import type { Occurrence } from "../lib/types";
 
 interface Props {
@@ -13,16 +13,21 @@ interface Props {
 
 export function OccurrenceRow({ occurrence, today, currency, actions }: Props) {
   const { bill, due, settlement } = occurrence;
-  const state = settlement?.status ?? (due < today ? "overdue" : "due");
+  const income = kindOf(bill) === "income";
+  const state = occurrenceState(occurrence, today);
   const when = settlement
-    ? `${settlement.status === "paid" ? "Paid" : "Skipped"} · due ${shortDate(due, today)}`
-    : `${shortDate(due, today)} · ${relativeDue(due, today)}`;
+    ? `${settledLabel(bill, settlement.status)} · due ${shortDate(due, today)}`
+    : `${shortDate(due, today)} · ${relativeDue(due, today).replace("overdue", income ? "late" : "overdue")}`;
 
   return (
-    <li className={`occ ${state}`}>
+    <li className={`occ ${state} ${income ? "income" : ""}`}>
       <button
         className="check"
-        aria-label={settlement ? `Undo ${settlement.status} for ${bill.name}` : `Mark ${bill.name} paid`}
+        aria-label={
+          settlement
+            ? `Undo ${settledLabel(bill, settlement.status).toLowerCase()} for ${bill.name}`
+            : `Mark ${bill.name} ${income ? "received" : "paid"}`
+        }
         onClick={() => (settlement ? actions.onUndo(occurrence) : actions.onSettle(occurrence, "paid"))}
       >
         {settlement?.status === "paid" ? "✓" : settlement?.status === "skipped" ? "–" : ""}
@@ -34,7 +39,10 @@ export function OccurrenceRow({ occurrence, today, currency, actions }: Props) {
         </span>
       </button>
       <div className="occ-side">
-        <span className="amount">{money(settlement?.amount ?? bill.amount, currency)}</span>
+        <span className={`amount ${income ? "positive" : ""}`}>
+          {income ? "+" : ""}
+          {money(settlement?.amount ?? bill.amount, currency)}
+        </span>
         {!settlement && (
           <button className="link" onClick={() => actions.onSettle(occurrence, "skipped")}>
             Skip

@@ -3,9 +3,10 @@ import { hasHistory, newId, scheduleChanged } from "../lib/actions";
 import { addDays, type ISODate } from "../lib/dates";
 import { centsToInput, parseMoney, shortDate } from "../lib/format";
 import { FREQUENCY_LABELS } from "../lib/recurrence";
-import type { AppData, Bill, Frequency } from "../lib/types";
+import type { AppData, Bill, Frequency, ItemKind } from "../lib/types";
 
 interface Props {
+  kind: ItemKind;
   bill?: Bill;
   data: AppData;
   today: ISODate;
@@ -16,7 +17,8 @@ interface Props {
 
 const FREQUENCIES = Object.keys(FREQUENCY_LABELS) as Frequency[];
 
-export function BillForm({ bill, data, today, onSave, onDelete, onCancel }: Props) {
+export function BillForm({ kind, bill, data, today, onSave, onDelete, onCancel }: Props) {
+  const noun = kind === "income" ? "income" : "bill";
   const [name, setName] = useState(bill?.name ?? "");
   const [amount, setAmount] = useState(bill ? centsToInput(bill.amount) : "");
   const [category, setCategory] = useState(bill?.category ?? "");
@@ -27,7 +29,9 @@ export function BillForm({ bill, data, today, onSave, onDelete, onCancel }: Prop
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
 
-  const categories = [...new Set(data.bills.map((b) => b.category).filter(Boolean))].sort();
+  const categories = [
+    ...new Set(data.bills.filter((b) => (b.kind ?? "bill") === kind).map((b) => b.category).filter(Boolean)),
+  ].sort();
   const splits =
     bill !== undefined &&
     hasHistory(data, bill.id) &&
@@ -36,12 +40,13 @@ export function BillForm({ bill, data, today, onSave, onDelete, onCancel }: Prop
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const cents = parseMoney(amount);
-    if (!name.trim()) return setError("Give the bill a name.");
+    if (!name.trim()) return setError(`Give the ${noun} a name.`);
     if (cents === null) return setError("Enter an amount like 120 or 89.95.");
     if (!anchor) return setError("Choose the due date.");
     if (endDate && endDate < anchor) return setError("The end date must be on or after the due date.");
     onSave({
       id: bill?.id ?? newId(),
+      kind,
       name: name.trim(),
       amount: cents,
       category: category.trim(),
@@ -59,7 +64,7 @@ export function BillForm({ bill, data, today, onSave, onDelete, onCancel }: Prop
           <button type="button" className="link" onClick={onCancel}>
             Cancel
           </button>
-          <h2>{bill ? "Edit bill" : "New bill"}</h2>
+          <h2>{bill ? `Edit ${noun}` : `New ${noun}`}</h2>
           <button type="submit" className="link strong">
             Save
           </button>
@@ -67,7 +72,7 @@ export function BillForm({ bill, data, today, onSave, onDelete, onCancel }: Prop
 
         <label>
           Name
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Electricity" autoFocus={!bill} />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={kind === "income" ? "e.g. Salary" : "e.g. Electricity"} autoFocus={!bill} />
         </label>
         <label>
           Amount
@@ -84,7 +89,9 @@ export function BillForm({ bill, data, today, onSave, onDelete, onCancel }: Prop
           </select>
         </label>
         <label>
-          {frequency === "once" ? "Due date" : "First due date"}
+          {kind === "income"
+            ? frequency === "once" ? "Expected on" : "First pay date"
+            : frequency === "once" ? "Due date" : "First due date"}
           <input type="date" value={anchor} onChange={(e) => setAnchor(e.target.value)} />
         </label>
         {frequency !== "once" && (
@@ -95,7 +102,7 @@ export function BillForm({ bill, data, today, onSave, onDelete, onCancel }: Prop
         )}
         <label>
           Category
-          <input value={category} onChange={(e) => setCategory(e.target.value)} list="categories" placeholder="e.g. Utilities" />
+          <input value={category} onChange={(e) => setCategory(e.target.value)} list="categories" placeholder={kind === "income" ? "e.g. Work" : "e.g. Utilities"} />
           <datalist id="categories">
             {categories.map((c) => (
               <option key={c} value={c} />
@@ -118,7 +125,7 @@ export function BillForm({ bill, data, today, onSave, onDelete, onCancel }: Prop
         {bill &&
           (confirmDelete ? (
             <div className="danger-confirm">
-              <span>Delete this bill and its payment history?</span>
+              <span>Delete this {noun} and its history?</span>
               <button type="button" className="danger" onClick={() => onDelete(bill.id)}>
                 Delete
               </button>
@@ -128,7 +135,7 @@ export function BillForm({ bill, data, today, onSave, onDelete, onCancel }: Prop
             </div>
           ) : (
             <button type="button" className="link danger-text" onClick={() => setConfirmDelete(true)}>
-              Delete bill
+              Delete {noun}
             </button>
           ))}
       </form>

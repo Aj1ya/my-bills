@@ -1,5 +1,20 @@
 import { addDays, addMonths, daysBetween, monthsBetween, type ISODate } from "./dates";
-import type { AppData, Bill, Frequency, Occurrence, Settlement } from "./types";
+import type { AppData, Bill, Frequency, ItemKind, Occurrence, Settlement } from "./types";
+
+export const kindOf = (bill: Bill): ItemKind => bill.kind ?? "bill";
+
+export type OccurrenceState = "paid" | "skipped" | "overdue" | "today" | "upcoming";
+
+/** Drives the row styling and the calendar dots. */
+export function occurrenceState(o: Occurrence, today: ISODate): OccurrenceState {
+  if (o.settlement) return o.settlement.status;
+  return o.due < today ? "overdue" : o.due === today ? "today" : "upcoming";
+}
+
+export function settledLabel(bill: Bill, status: Settlement["status"]): string {
+  if (status === "skipped") return "Skipped";
+  return kindOf(bill) === "income" ? "Received" : "Paid";
+}
 
 type Step = { unit: "day" | "month"; size: number };
 
@@ -105,10 +120,11 @@ export function occurrencesInRange(data: AppData, from: ISODate, to: ISODate): O
     .sort(byDue);
 }
 
-export function overdue(data: AppData, today: ISODate): Occurrence[] {
+export function overdue(data: AppData, today: ISODate, kind: ItemKind = "bill"): Occurrence[] {
   const index = indexSettlements(data.settlements);
   const yesterday = addDays(today, -1);
   return data.bills
+    .filter((bill) => kindOf(bill) === kind)
     .flatMap((bill) =>
       occurrencesBetween(bill, bill.anchor, yesterday)
         .filter((due) => !index.has(key(bill.id, due)))
